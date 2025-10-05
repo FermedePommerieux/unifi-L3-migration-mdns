@@ -129,10 +129,11 @@ sudo nft list ruleset | sed -n '1,160p'
               +----------+-----------+
                          |
                          | trunk (LAN + VLAN 10,30,50)
-               +---------+----------+
+                         |
+               +---------+-------------+
                | Raspberry Pi (bridge) |
-               |  Avahi + nftables      |
-               +----------+-------------+
+               |  Avahi + nftables     |
+               +----------+------------+
                | VLAN 10 / VLAN 30 / VLAN 50
                |  (routed by L3 switch)
 ```
@@ -152,11 +153,12 @@ sudo nft list ruleset | sed -n '1,160p'
 
 ## 🩺 Troubleshooting
 
-- **No `.local` resolution?**
-  → Install `libnss-mdns` on clients.
-
 - **Service discovered but not reachable?**
-  → Check **gateway ACLs**; mDNS reflection works, but unicast routing is blocked.
+  → Check your **gateway firewall/ACLs**. The mDNS reflection is working, but **unicast routing may be blocked**.  
+  After migrating VLANs to Layer-3, some firewall rules might break.  
+  If you previously allowed traffic from a VLAN that is now L3-routed, the rule must be recreated.  
+  The migrated VLANs will no longer appear in the UniFi “Network” list (this is normal),  
+  so you need to manually define them — use an **Address List** instead of a “Network”
 
 - **Avahi fails to start?**
   → Likely invalid key in `/etc/avahi/avahi-daemon.conf`. Run:
