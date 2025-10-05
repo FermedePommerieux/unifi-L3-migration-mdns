@@ -170,11 +170,10 @@ sudo nft list ruleset | sed -n '1,160p'
 
 ## 🧠 Credits
 
-Developed for UniFi users migrating to Layer-3 switching while preserving multicast service discovery.  
-Maintained by [Eloi Primaux](https://github.com/<yourusername>).
+Developed for UniFi users migrating to Layer-3 switching while preserving multicast service discovery.
 
 ---
 
 ## 📜 License
 
-MIT License © 2025 Eloi Primaux
+MIT License © 2025 FermdePommerieux
