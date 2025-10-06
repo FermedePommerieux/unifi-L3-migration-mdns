@@ -190,7 +190,6 @@ configure_avahi() {
 use-ipv4=yes
 use-ipv6=yes
 allow-interfaces=${iflist}
-allow-point-to-point=yes
 
 [reflector]
 enable-reflector=yes
@@ -203,8 +202,6 @@ publish-addresses=yes
 publish-hinfo=yes
 publish-workstation=yes
 
-[wide-area]
-enable-wide-area=yes
 EOF
 
   systemctl enable avahi-daemon
