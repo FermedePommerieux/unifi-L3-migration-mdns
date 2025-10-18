@@ -65,39 +65,6 @@ die() { echo "ERROR: $*" >&2; exit 1; }
 log() { printf "\033[1;32m[INFO]\033[0m %s\n" "$*"; }
 warn() { printf "\033[1;33m[WARN]\033[0m %s\n" "$*"; }
 
-split_reflect_filters() {
-  local input="$1" max_len=900 chunk="" entry trimmed
-  local -n out_ref="$2"
-  out_ref=()
-
-  if [[ -z "$input" ]]; then
-    out_ref+=("")
-    return
-  fi
-
-  local -a entries
-  IFS=',' read -r -a entries <<< "$input"
-  for entry in "${entries[@]}"; do
-    trimmed="${entry//[$'\n\r\t ']/}"
-    [[ -z "$trimmed" ]] && continue
-
-    if [[ -z "$chunk" ]]; then
-      chunk="$trimmed"
-      continue
-    fi
-
-    if (( ${#chunk} + 1 + ${#trimmed} > max_len )); then
-      out_ref+=("$chunk")
-      chunk="$trimmed"
-    else
-      chunk+=",$trimmed"
-    fi
-  done
-
-  [[ -n "$chunk" ]] && out_ref+=("$chunk")
-  [[ ${#out_ref[@]} -eq 0 ]] && out_ref+=("")
-}
-
 nm_on() { systemctl enable --now NetworkManager; }
 
 nm_active_con_for_dev() { nmcli -t -f NAME,DEVICE con show --active | awk -F: -v d="$1" '$2==d{print $1; exit}'; }
@@ -230,11 +197,7 @@ configure_avahi() {
     cp -a /etc/avahi/avahi-daemon.conf /etc/avahi/avahi-daemon.conf.bak
   fi
 
-  local -a reflect_filter_lines
-  split_reflect_filters "$reflect_filters" reflect_filter_lines
-
-  {
-    cat <<EOF
+  cat > /etc/avahi/avahi-daemon.conf <<EOF
 [server]
 use-ipv4=yes
 use-ipv6=yes
@@ -249,12 +212,7 @@ enable-wide-area=yes
 [reflector]
 enable-reflector=yes
 reflect-ipv=${AVAHI_REFLECT_IPV}
-EOF
-    local line
-    for line in "${reflect_filter_lines[@]}"; do
-      printf 'reflect-filters=%s\n' "$line"
-    done
-    cat <<'EOF'
+reflect-filters=${reflect_filters}
 
 [publish]
 disable-publishing=no
@@ -263,7 +221,6 @@ publish-hinfo=no
 publish-workstation=no
 
 EOF
-  } > /etc/avahi/avahi-daemon.conf
 
   systemctl enable avahi-daemon
   systemctl restart avahi-daemon
