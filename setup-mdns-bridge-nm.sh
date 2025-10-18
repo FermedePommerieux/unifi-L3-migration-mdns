@@ -56,9 +56,6 @@ MGMT_CON_UNTAGGED="mdns-mgmt-${PHY_IF}-untagged"
 MGMT_CON_TAGGED="mdns-mgmt-${PHY_IF}.${MGMT_VID}"
 VLAN_CON_PREFIX="mdns-vlan"     # final name: mdns-vlan<VID>
 
-AVAHI_CAN_FILTER_REFLECTOR=""
-AVAHI_FILTERS_EFFECTIVE=""
-
 # -------------------------
 # Helpers
 # -------------------------
@@ -67,38 +64,6 @@ require_cmd() { command -v "$1" >/dev/null 2>&1 || { echo "Missing command: $1" 
 die() { echo "ERROR: $*" >&2; exit 1; }
 log() { printf "\033[1;32m[INFO]\033[0m %s\n" "$*"; }
 warn() { printf "\033[1;33m[WARN]\033[0m %s\n" "$*"; }
-
-avahi_supports_reflect_filters() {
-  if [[ -n "$AVAHI_CAN_FILTER_REFLECTOR" ]]; then
-    [[ "$AVAHI_CAN_FILTER_REFLECTOR" == "yes" ]]
-    return
-  fi
-
-  local bin tmp
-  bin="$(command -v avahi-daemon || true)"
-  if [[ -z "$bin" ]]; then
-    AVAHI_CAN_FILTER_REFLECTOR="no"
-    return 1
-  fi
-
-  tmp="$(mktemp)"
-  if "$bin" --dump-config >"$tmp" 2>/dev/null; then
-    if grep -q 'reflect-filters' "$tmp"; then
-      rm -f "$tmp"
-      AVAHI_CAN_FILTER_REFLECTOR="yes"
-      return 0
-    fi
-  fi
-  rm -f "$tmp"
-
-  if command -v strings >/dev/null 2>&1 && strings "$bin" | grep -q 'reflect-filters'; then
-    AVAHI_CAN_FILTER_REFLECTOR="yes"
-    return 0
-  fi
-
-  AVAHI_CAN_FILTER_REFLECTOR="no"
-  return 1
-}
 
 nm_on() { systemctl enable --now NetworkManager; }
 
@@ -227,16 +192,6 @@ configure_avahi() {
     fi
   fi
 
-  AVAHI_FILTERS_EFFECTIVE=""
-  if [[ -n "$reflect_filters" ]]; then
-    if avahi_supports_reflect_filters; then
-      AVAHI_FILTERS_EFFECTIVE="$reflect_filters"
-    else
-      warn "Installed Avahi lacks reflect-filters support; skipping reflector allowlist enforcement."
-      reflect_filters=""
-    fi
-  fi
-
   install -d -m 0755 /etc/avahi
   if [[ -f /etc/avahi/avahi-daemon.conf && ! -f /etc/avahi/avahi-daemon.conf.bak ]]; then
     cp -a /etc/avahi/avahi-daemon.conf /etc/avahi/avahi-daemon.conf.bak
@@ -257,7 +212,7 @@ enable-wide-area=yes
 [reflector]
 enable-reflector=yes
 reflect-ipv=${AVAHI_REFLECT_IPV}
-$( [[ -n "$reflect_filters" ]] && printf 'reflect-filters=%s\n' "$reflect_filters" )
+reflect-filters=${reflect_filters}
 
 [publish]
 disable-publishing=no
@@ -337,11 +292,7 @@ summary_banner() {
   echo
   echo "Management connection: ${MGMT_CONN} (${MGMT_IFNAME})"
   echo "Migrated VLAN IFs:     ${VLAN_IFNAMES[*]}"
-  if [[ -n "$AVAHI_FILTERS_EFFECTIVE" ]]; then
-    echo "Avahi:                 listen+publish on LAN+VLANs, reflect-ipv=${AVAHI_REFLECT_IPV}, filters enforced"
-  else
-    echo "Avahi:                 listen+publish on LAN+VLANs, reflect-ipv=${AVAHI_REFLECT_IPV}, filters disabled"
-  fi
+  echo "Avahi:                 listen+publish on LAN+VLANs, reflect-ipv=${AVAHI_REFLECT_IPV}"
   echo "nftables:              input DROP; mgmt=ACCEPT; VLANs allow DHCP(client) + mDNS"
   echo
   echo "Quick tests:"
