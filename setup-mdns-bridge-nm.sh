@@ -35,9 +35,7 @@ MGMT_ADDR="192.168.1.50/24"        # if static
 MGMT_GW="192.168.1.1"              # if static
 MGMT_DNS=("192.168.1.1" "1.1.1.1") # optional for static
 
-# Base reflector filters always enforced (do not remove to keep bridge safe)
-AVAHI_DEFAULT_REFLECT_FILTERS="_amazonecho-remote._tcp,_workstation._tcp.local,_amzn-wplay._tcp.local,_androidtvremote._tcp.local,_airdrop._tcp.local,_appletv-v2._tcp.local,_raop._tcp.local,_airplay._tcp.local,_companion-link._tcp.local,_afpovertcp._tcp.local,_presence._tcp.local,_ichat._tcp.local,_apple-mobdev2._tcp.local,_apple-mobdev._tcp.local,_atc._tcp.local,_daap._tcp.local,_home-sharing._tcp.local,_dacp._tcp.local,_aqara-setup._tcp.local,_aqara._tcp.local,_bose._tcp.local,_dns-sd._udp.local,_ftp._tcp.local,_sftp-ssh._tcp.local,_googlecast._tcp.local,_googlezone._tcp.local,_homekit._tcp.local,_hap._tcp.local,_matter._tcp,_matterc._udp,_matterd._udp,_matter_gateway._tcp,_philipshue._tcp.local,_http._tcp.local,_canon-bjnp1._tcp.local,_ipps._tcp.local,_ipp._tcp.local,_ptp._tcp.local,_http_alt._tcp.local,_ica-networking2._tcp.local,_ica-networking._tcp.local,_ipp-tls._tcp.local,_fax-ipp._tcp.local,_ippusb._tcp.local,_printer._tcp.local,_pdl-datastream._tcp.local,_scanner._tcp.local,_riousbprint._tcp.local,_scan-target._tcp.local,_roku._tcp.local,_rsp._tcp.local,_scanner._tcp,_uscans._tcp.local,_uscan._tcp.local,_sonos._tcp.local,_spotify-connect._tcp.local,_ssh._tcp.local,_adisk._tcp.local,_https._tcp.local,_smb._tcp.local,_smbdirect._tcp.local"
-# Optional reflector filters appended to the defaults (leave empty for defaults only)
+# Optional reflector filters (leave empty to reflect all)
 AVAHI_REFLECT_FILTERS=""
 # Cross-family reflection (IPv4<->IPv6)
 AVAHI_REFLECT_IPV="yes"
@@ -182,16 +180,6 @@ configure_avahi() {
   local iflist; iflist="$MGMT_IFNAME"
   local x; for x in "${VLAN_IFNAMES[@]}"; do iflist+=",$x"; done
 
-  local reflect_filters
-  reflect_filters="$AVAHI_DEFAULT_REFLECT_FILTERS"
-  if [[ -n "$AVAHI_REFLECT_FILTERS" ]]; then
-    if [[ -n "$reflect_filters" ]]; then
-      reflect_filters+=",$AVAHI_REFLECT_FILTERS"
-    else
-      reflect_filters="$AVAHI_REFLECT_FILTERS"
-    fi
-  fi
-
   install -d -m 0755 /etc/avahi
   if [[ -f /etc/avahi/avahi-daemon.conf && ! -f /etc/avahi/avahi-daemon.conf.bak ]]; then
     cp -a /etc/avahi/avahi-daemon.conf /etc/avahi/avahi-daemon.conf.bak
@@ -201,24 +189,18 @@ configure_avahi() {
 [server]
 use-ipv4=yes
 use-ipv6=yes
-cache-entries-max=0
-ratelimit-interval-usec=1000000
-ratelimit-burst=1000
 allow-interfaces=${iflist}
-
-[wide-area]
-enable-wide-area=yes
 
 [reflector]
 enable-reflector=yes
 reflect-ipv=${AVAHI_REFLECT_IPV}
-reflect-filters=${reflect_filters}
+$( [[ -n "$AVAHI_REFLECT_FILTERS" ]] && echo "# Optional: reflect-filters=${AVAHI_REFLECT_FILTERS}" )
 
 [publish]
 disable-publishing=no
 publish-addresses=yes
-publish-hinfo=no
-publish-workstation=no
+publish-hinfo=yes
+publish-workstation=yes
 
 EOF
 
